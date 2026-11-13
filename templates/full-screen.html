@@ -52,5 +52,202 @@
         @QGIS2WEBJS@        
         @MBGLJS_MEASURE@
         @MBGLJS_LOCATE@
+
+    <!-- cimbach -->
+    <style>
+      /* Cache le conteneur de légende par défaut */
+      .layer-switcher li.layer:not(.legend-open) .legend-wrapper {
+        display: none;
+      }
+
+      /* Affiche la légende quand elle est dépliée */
+      .layer-switcher li.layer.legend-open .legend-wrapper {
+        display: block;
+        margin-top: 4px;
+        padding-left: 18px;
+      }
+
+      /* Style du petit bouton + / - */
+      .toggle-legend-btn {
+        display: inline-block !important;
+        margin-left: 8px;
+        padding: 0 6px;
+        font-size: 13px;
+        line-height: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        border: 1px solid #888;
+        border-radius: 3px;
+        background-color: #f8f8f8;
+        color: #222;
+        user-select: none;
+        vertical-align: middle;
+      }
+      .toggle-legend-btn:hover {
+        background-color: #e0e0e0;
+      }
+
+      /* Maintient le layer-switcher à gauche à 200px du haut et limite sa hauteur */
+      .layer-switcher {
+        position: absolute !important;
+        top: 200px !important;
+        left: 10px !important;
+        right: auto !important;
+        max-width: calc(100vw - 60px) !important;
+        max-height: calc(100vh - 220px) !important;
+      }
+
+      /* Ajoute une barre de défilement interne avant d'atteindre le bas de l'écran */
+      .layer-switcher .panel {
+        max-height: calc(100vh - 230px) !important;
+        overflow-y: auto !important;
+        overflow-x: auto !important;
+      }
+
+      /* Alignement centré des symboles pour TOUTES les couches */
+      .legend-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 3px;
+      }
+
+      .legend-icon-box {
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        width: 26px;
+        margin-right: 6px;
+        flex-shrink: 0;
+      }
+
+      .legend-icon-box img {
+        display: block;
+        max-width: 100%;
+        height: auto;
+      }
+
+
+    </style>
+
+    <script>
+      (function() {
+        var openLayersState = {};
+
+        function updateLayerSwitcher() {
+          // Remplace les flèches droites (») par des flèches gauches («) sur le bouton de fermeture
+          var closeBtn = document.querySelector('.layer-switcher > button[title="Close"]');
+          if (closeBtn && closeBtn.textContent === '»') {
+            closeBtn.textContent = '«';
+          }
+
+          var layers = document.querySelectorAll('.layer-switcher li.layer');
+          layers.forEach(function(li) {
+            var label = li.querySelector('label');
+            if (!label || li.dataset.legendProcessed) return;
+
+            var firstBr = label.querySelector('br');
+            var singleImg = label.querySelector('img');
+
+            if (!firstBr && !singleImg) return;
+
+            li.dataset.legendProcessed = 'true';
+
+            var wrapper = document.createElement('div');
+            wrapper.className = 'legend-wrapper';
+            var layerName = '';
+
+            if (firstBr) {
+              // Cas 1 : Symbologie multiple (ex: pur_corbeilles)
+              layerName = label.firstChild ? label.firstChild.textContent.trim() : '';
+
+              var currentRow = document.createElement('div');
+              currentRow.className = 'legend-row';
+
+              var current = firstBr.nextSibling;
+              while (current) {
+                var next = current.nextSibling;
+
+                if (current.nodeName === 'BR') {
+                  if (currentRow.hasChildNodes()) {
+                    wrapper.appendChild(currentRow);
+                    currentRow = document.createElement('div');
+                    currentRow.className = 'legend-row';
+                  }
+                  current.remove();
+                } else if (current.nodeName === 'IMG') {
+                  var iconBox = document.createElement('span');
+                  iconBox.className = 'legend-icon-box';
+                  iconBox.appendChild(current);
+                  currentRow.appendChild(iconBox);
+                } else if (current.nodeType === Node.TEXT_NODE) {
+                  var cleanText = current.textContent.trim();
+                  if (cleanText.length > 0) {
+                    var textSpan = document.createElement('span');
+                    textSpan.textContent = cleanText;
+                    currentRow.appendChild(textSpan);
+                  }
+                  current.remove();
+                } else {
+                  currentRow.appendChild(current);
+                }
+
+                current = next;
+              }
+
+              if (currentRow.hasChildNodes()) {
+                wrapper.appendChild(currentRow);
+              }
+
+              firstBr.remove();
+            } else if (singleImg) {
+              // Cas 2 : Symbologie unique (ex: geomapfish_extent)
+              // Utilise la même structure .legend-row et .legend-icon-box pour un alignement identique
+              var singleRow = document.createElement('div');
+              singleRow.className = 'legend-row';
+
+              var singleIconBox = document.createElement('span');
+              singleIconBox.className = 'legend-icon-box';
+              singleIconBox.appendChild(singleImg);
+
+              singleRow.appendChild(singleIconBox);
+              wrapper.appendChild(singleRow);
+
+              label.textContent = label.textContent.trim();
+              layerName = label.textContent;
+            }
+
+            if (openLayersState[layerName]) {
+              li.classList.add('legend-open');
+            }
+
+            var btn = document.createElement('span');
+            btn.className = 'toggle-legend-btn';
+            btn.textContent = openLayersState[layerName] ? '−' : '+';
+            btn.title = 'Afficher / Masquer la symbologie';
+
+            btn.addEventListener('click', function(e) {
+              e.preventDefault();
+              e.stopPropagation();
+              var isOpen = li.classList.toggle('legend-open');
+              openLayersState[layerName] = isOpen;
+              btn.textContent = isOpen ? '−' : '+';
+            });
+
+            li.appendChild(btn);
+            li.appendChild(wrapper);
+          });
+        }
+
+        var observer = new MutationObserver(function() {
+          updateLayerSwitcher();
+        });
+
+        window.addEventListener('DOMContentLoaded', function() {
+          observer.observe(document.body, { childList: true, subtree: true });
+          updateLayerSwitcher();
+        });
+      })();
+    </script>
+
     </body>
 </html>
