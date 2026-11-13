@@ -708,13 +708,87 @@ def getXYZ(layerName, rawName, opacity, minResolution, maxResolution,
     
     return layerCode
 
-
 def getWMTS(layer, d, layerAttr, layerName, opacity, minResolution,
             maxResolution):
-    layerId = d["layers"][0]
-    url = d["url"][0]
-    format = d["format"][0]
-    style = d["styles"][0]
+    import urllib.parse
+    source_str = layer.source()
+    layerId = next(iter(d["layers"]))
+    url = next(iter(d["url"]))
+    format = next(iter(d["format"]))
+    style = next(iter(d["styles"]))
+
+    # Détection des WMTS suisses en MN95 (EPSG:2056 / swissgrid)
+    if "EPSG:2056" in source_str or "swissgrid" in source_str:
+        # Extraction du tileMatrixSet (ex: swissgrid_05)
+        m_set = re.search(r"tileMatrixSet=([^&]+)", source_str)
+        matrix_set = m_set.group(1) if m_set else "swissgrid_05"
+
+        # Extraction éventuelle de tileDimensions (ex: DATE=2021 -> 2021)
+        m_dim = re.search(r"tileDimensions=([^&]+)", source_str)
+        dim_segment = ""
+        if m_dim:
+            decoded_dim = urllib.parse.unquote(m_dim.group(1))
+            if "=" in decoded_dim:
+                _, dim_val = decoded_dim.split("=", 1)
+                dim_segment = dim_val + "/"
+
+        # Détermination de l'extension d'image (.png ou .jpeg)
+        ext = "jpg" if "jpeg" in format.lower() or "jpg" in format.lower() else "png"
+
+        # Reconstruction de l'URL REST si l'URL pointe vers un fichier Capabilities XML
+        if url.endswith(".xml") or "WMTSCapabilities" in url:
+            base_url, _ = url.rsplit("/", 1)
+            rest_url = "%s/%s/%s/%s%s/{TileMatrix}/{TileRow}/{TileCol}.%s" % (
+                base_url, layerId, style, dim_segment, matrix_set, ext
+            )
+        else:
+            rest_url = url
+
+        return '''
+    var projection_%(n)s = ol.proj.get('EPSG:2056');
+    projection_%(n)s.setExtent(new Array(2420000, 1030000, 2900000, 1350000));
+    var RESOLUTIONS_%(n)s = new Array(
+      50.0, 20.0, 10.0, 5.0, 2.5, 1.0, 0.5, 0.25, 0.1, 0.05
+    );
+    var matrixIds_%(n)s = new Array();
+    for (var i = 0; i < RESOLUTIONS_%(n)s.length; i++) {
+      matrixIds_%(n)s.push(i.toString());
+    }
+    var lyr_%(n)s = new ol.layer.Tile({
+                            source: new ol.source.WMTS({
+                              url: '%(url)s',
+                              attributions: '%(layerAttr)s',
+                              layer: '%(layerId)s',
+                              style: '%(style)s',
+                              format: '%(format)s',
+                              projection: projection_%(n)s,
+                              matrixSet: '%(matrixSet)s',
+                              requestEncoding: 'REST',
+                              tileGrid: new ol.tilegrid.WMTS({
+                                origin: new Array(2420000, 1350000),
+                                resolutions: RESOLUTIONS_%(n)s,
+                                matrixIds: matrixIds_%(n)s
+                              })
+                            }),
+                            title: '%(name)s',
+                            opacity: %(opacity)s,
+                            %(minRes)s
+                            %(maxRes)s
+                          });''' % {
+            "layerId": layerId,
+            "url": rest_url,
+            "layerAttr": layerAttr,
+            "format": format,
+            "n": layerName,
+            "name": layer.name().replace("'", "\\'"),
+            "opacity": opacity,
+            "style": style,
+            "matrixSet": matrix_set,
+            "minRes": minResolution,
+            "maxRes": maxResolution
+        }
+
+    # Comportement standard d'origine pour les WMTS mondiaux (EPSG:3857)
     return '''
     var projection_%(n)s = ol.proj.get('EPSG:3857');
     var projectionExtent_%(n)s = projection_%(n)s.getExtent();
@@ -723,8 +797,8 @@ def getWMTS(layer, d, layerAttr, layerName, opacity, minResolution,
     var matrixIds_%(n)s = new Array(14);
     for (var z = 0; z < 14; ++z) {
         // generate resolutions and matrixIds arrays for this WMTS
-        resolutions_%(n)s[z] = size_%(n)s / Math.pow(2, z);
-        matrixIds_%(n)s[z] = z;
+        resolutions_%(n)s.splice(z, 1, size_%(n)s / Math.pow(2, z));
+        matrixIds_%(n)s.splice(z, 1, z);
     }
     var lyr_%(n)s = new ol.layer.Tile({
                             source: new ol.source.WMTS(({
@@ -754,6 +828,7 @@ def getWMTS(layer, d, layerAttr, layerName, opacity, minResolution,
                                     "opacity": opacity, "style": style,
                                     "minRes": minResolution,
                                     "maxRes": maxResolution}
+
 
 
 def getWMS(source, layer, layerAttr, layerName, opacity, minResolution,
