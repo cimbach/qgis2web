@@ -249,5 +249,24 @@
       })();
     </script>
 
+        <!-- Patch casse des attributs QGIS (Alias vs PostGIS/GeoJSON) -->
+        <script>
+          (function() {
+            if (typeof ol !== 'undefined' && ol.Feature && ol.Feature.prototype) {
+              var originalGet = ol.Feature.prototype.get;
+              ol.Feature.prototype.get = function(key) {
+                var value = originalGet.call(this, key);
+                if ((value === undefined || value === null) && typeof key === 'string') {
+                  var lowerKey = key.toLowerCase();
+                  if (lowerKey !== key) {
+                    return originalGet.call(this, lowerKey);
+                  }
+                }
+                return value;
+              };
+            }
+          })();
+        </script>
+
     </body>
 </html>
