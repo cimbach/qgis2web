@@ -758,17 +758,24 @@ def getWMTS(layer, d, layerAttr, layerName, opacity, minResolution,
 
 def getWMS(source, layer, layerAttr, layerName, opacity, minResolution,
            maxResolution, info, baseMap):
-    layers = re.search(r"layers=(.*?)(?:&|$)", source).groups(0)[0]
-    url = re.search(r"url=(.*?)(?:&|$)", source).groups(0)[0]
+    import urllib.parse
+    layers_match = re.search(r"layers=(.*?)(?:&|$)", source)
+    layers = urllib.parse.unquote(layers_match.group(1)) if layers_match else ""
+
+    url_match = re.search(r"url=(.*?)(?:&|$)", source)
+    raw_url = url_match.group(1) if url_match else ""
+    url = urllib.parse.unquote(raw_url)
+
     metadata = layer.htmlMetadata()
     needle = "<tr><td>%s</td><td>(.+?)</td>" % (
         QCoreApplication.translate("QgsWmsProvider",
                                    "WMS Version"))
     result = re.search(needle, metadata)
-    if result:
-        version = result.group(1)
+    if result and result.group(1).strip():
+        version = result.group(1).strip()
     else:
-        version = ""
+        version = "1.3.0"
+
     return '''var lyr_%(n)s = new ol.layer.Tile({
                             source: new ol.source.TileWMS(({
                               url: "%(url)s",
@@ -785,9 +792,9 @@ def getWMS(source, layer, layerAttr, layerName, opacity, minResolution,
                             %(minRes)s
                             %(maxRes)s
                           });
-              wms_layers.push([lyr_%(n)s, %(info)d]);''' % {
+              wms_layers.push(new Array(lyr_%(n)s, %(info)d));''' % {
         "layers": layers, "url": url, "layerAttr": layerAttr, "n": layerName,
-        "name": layer.name().replace("'", "\\'"), "version": version, "type": "base" if baseMap else "", 
+        "name": layer.name().replace("'", "\\'"), "version": version, "type": "base" if baseMap else "",
         "opacity": opacity, "minRes": minResolution, "maxRes": maxResolution, "info": info}
 
 
