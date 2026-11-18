@@ -60,6 +60,36 @@
         display: none;
       }
 
+      /* Réduit l'espace entre la case à cocher et le nom de la couche */
+      .layer-switcher li.layer > input[type="checkbox"],
+      .layer-switcher li.group > input[type="checkbox"] {
+          vertical-align: middle;
+          margin: 0 3px 0 0; /* Espace réduit de moitié (3px au lieu de 6px) */
+          position: relative;
+          top: 1px;
+      }
+
+      /* Supprime l'éventuelle marge gauche du texte ajoutée par ol-layerswitcher */
+      .layer-switcher li.layer > label,
+      .layer-switcher li.group > label {
+          vertical-align: middle;
+          margin: 0;
+          padding-left: 20px;
+          display: inline-block;
+          font-weight: bold;
+      }
+
+      /* Conserve l'alignement de la flèche de groupe */
+      .layer-switcher li.group > button {
+          top: 4px;
+      }
+
+      /* Prépare chaque ligne de couche pour aligner le bouton '+' à droite */
+      .layer-switcher li.layer {
+          position: relative;
+          padding-right: 38px; /* Réserve la place à droite pour éviter que le texte ne touche le '+' */
+      }
+
       /* Affiche la légende quand elle est dépliée */
       .layer-switcher li.layer.legend-open .legend-wrapper {
         display: block;
@@ -67,24 +97,41 @@
         padding-left: 18px;
       }
 
-      /* Style du petit bouton + / - */
-      .toggle-legend-btn {
-        display: inline-block !important;
-        margin-left: 8px;
-        padding: 0 6px;
-        font-size: 13px;
-        line-height: 16px;
-        font-weight: bold;
-        cursor: pointer;
-        border: 1px solid #888;
-        border-radius: 3px;
-        background-color: #f8f8f8;
-        color: #222;
-        user-select: none;
-        vertical-align: middle;
+      /* Aligne tous les boutons '+' verticalement sur le bord droit */
+      .layer-switcher li.layer > .toggle-legend-btn {
+          position: absolute;
+          right: 10px; /* Ajustez cette valeur (ex: 8px ou 12px) pour caler la colonne de '+' */
+          top: 2px;    /* Ajustez de 1px au besoin pour centrer le '+' sur la première ligne */
+          /* Dimensions fixes identiques pour le '+' et le '-' */
+          width: 18px;
+          height: 17px;
+          padding: 0;
+          box-sizing: border-box;
+    
+          /* Centrage parfait du symbole au milieu du cadre */
+          display: inline-flex !important;
+          align-items: center;
+          justify-content: center;
+    
+          /* Style discret */  
+          margin: 0;
+          padding: 0 5px;
+          font-size: 13px;
+          line-height: 15px;
+          font-weight: normal; /* Plus fin et moins agressif que bold */
+          color: #777;         /* Gris clair pour le symbole '+' */
+          background-color: transparent; /* Fond transparent pour se fondre dans le panneau */
+          border: 1px solid #ddd;        /* Bordure très légère */
+          border-radius: 3px;
+          cursor: pointer;
+          user-select: none;
+          transition: all 0.15s ease;
       }
-      .toggle-legend-btn:hover {
-        background-color: #e0e0e0;
+      /* Mise en évidence légère uniquement au survol de la souris */
+      .layer-switcher li.layer > .toggle-legend-btn:hover {
+          color: #444;
+          border-color: #bbb;
+          background-color: #f4f4f4;
       }
 
       /* Maintient le layer-switcher à gauche à 200px du haut et limite sa hauteur */
